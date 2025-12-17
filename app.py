@@ -8,7 +8,7 @@ st.set_page_config(
 )
 
 st.title("📊 Higienização de Base – Auto Nunes")
-st.write("Faça upload da planilha (.xlsx). O sistema irá limpar e validar os telefones.")
+st.write("Faça upload da planilha (.xlsx). O sistema irá apenas limpar e padronizar os telefones.")
 
 # -----------------------------
 # Funções
@@ -17,13 +17,16 @@ def limpar_telefone(valor):
     if pd.isna(valor):
         return None
 
+    # Trata float vindo do Excel
     if isinstance(valor, float):
         valor = str(int(valor))
     else:
         valor = str(valor)
 
+    # Remove tudo que não é número
     valor = re.sub(r"\D", "", valor)
 
+    # Remove zero extra no início (ex: 0819...)
     if valor.startswith("0") and len(valor) >= 11:
         valor = valor[1:]
 
@@ -31,17 +34,28 @@ def limpar_telefone(valor):
 
 
 def extrair_ddd_numero(tel):
-    if not tel or len(tel) < 10:
+    if not tel:
         return None, None
 
-    ddd = tel[:2]
-    numero = tel[2:]
+    # Caso venha com DDD
+    if len(tel) >= 10:
+        ddd = tel[:2]
+        numero = tel[2:]
+    else:
+        # Sem DDD não descarta — apenas invalida
+        return None, None
 
+    # Remove fixos comerciais
     if numero.startswith("3"):
         return None, None
 
+    # Ajusta celular antigo
     if len(numero) == 8:
         numero = "9" + numero
+
+    # Validação final mínima
+    if len(numero) != 9:
+        return None, None
 
     return ddd, numero
 
@@ -64,26 +78,25 @@ if arquivo:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # Identificar coluna nome
+        # Identificar coluna nome (opcional)
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
-        if not col_nome:
-            st.error("❌ Nenhuma coluna de nome encontrada.")
-            st.stop()
-
-        # Limpeza e validação
+        # Limpeza
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         df["FONE1_DD"], df["FONE1_NR"] = zip(*df["TEL_LIMPO"].apply(extrair_ddd_numero))
 
-        # Remove apenas telefones inválidos
+        # Remove apenas inválidos reais
         df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
 
         # IDs
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # Primeiro nome
-        df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
+        # Primeiro nome (se existir)
+        if col_nome:
+            df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
+        else:
+            df["CAMPO01"] = ""
 
         # Campos fixos
         df["FONE1_DISCAR EM"] = ""
