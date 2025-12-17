@@ -3,12 +3,12 @@ import re
 import streamlit as st
 
 st.set_page_config(
-    page_title="Higienizador de Base - Nextip Auto Nunes",
+    page_title="Higienizador de Base - Auto Oriente",
     layout="centered"
 )
 
-st.title("📊 Higienização de Base – Auto Nunes")
-st.write("Faça upload da planilha (.xlsx). O sistema irá apenas limpar e padronizar os telefones.")
+st.title("📊 Higienização de Base – Auto Oriente")
+st.write("O sistema apenas limpa e padroniza telefones. Não remove números válidos.")
 
 # -----------------------------
 # Funções
@@ -17,18 +17,15 @@ def limpar_telefone(valor):
     if pd.isna(valor):
         return None
 
-    # Trata float vindo do Excel
     if isinstance(valor, float):
         valor = str(int(valor))
     else:
         valor = str(valor)
 
-    # Remove tudo que não é número
     valor = re.sub(r"\D", "", valor)
 
-    # Remove zero extra no início (ex: 0819...)
-    if valor.startswith("0") and len(valor) >= 11:
-        valor = valor[1:]
+    if valor == "":
+        return None
 
     return valor
 
@@ -37,23 +34,20 @@ def extrair_ddd_numero(tel):
     if not tel:
         return None, None
 
-    # Caso venha com DDD
+    # Telefones com DDD
     if len(tel) >= 10:
         ddd = tel[:2]
         numero = tel[2:]
     else:
-        # Sem DDD não descarta — apenas invalida
-        return None, None
+        # Telefones sem DDD
+        ddd = ""
+        numero = tel
 
-    # Remove fixos comerciais
-    if numero.startswith("3"):
-        return None, None
-
-    # Ajusta celular antigo
+    # Ajuste celular antigo
     if len(numero) == 8:
         numero = "9" + numero
 
-    # Validação final mínima
+    # Regra mínima REAL
     if len(numero) != 9:
         return None, None
 
@@ -70,7 +64,7 @@ if arquivo:
         df = pd.read_excel(arquivo)
         df.columns = df.columns.str.upper().str.strip()
 
-        # Identificar coluna telefone
+        # Coluna telefone
         possiveis = ["TELEFONE", "TEL", "FONE", "CELULAR"]
         col_tel = next((c for c in df.columns if any(p in c for p in possiveis)), None)
 
@@ -78,21 +72,21 @@ if arquivo:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # Identificar coluna nome (opcional)
+        # Coluna nome (opcional)
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
-        # Limpeza
+        # Higienização
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         df["FONE1_DD"], df["FONE1_NR"] = zip(*df["TEL_LIMPO"].apply(extrair_ddd_numero))
 
-        # Remove apenas inválidos reais
-        df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
+        # Remove apenas lixo real
+        df = df.dropna(subset=["FONE1_NR"])
 
         # IDs
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # Primeiro nome (se existir)
+        # Primeiro nome
         if col_nome:
             df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
         else:
@@ -121,7 +115,7 @@ if arquivo:
 
         csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
 
-        st.success("✅ Planilha higienizada com sucesso!")
+        st.success(f"✅ Higienização concluída — {len(df)} números válidos")
 
         st.download_button(
             "⬇ Baixar CSV Higienizado",
