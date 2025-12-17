@@ -3,11 +3,11 @@ import re
 import streamlit as st
 
 st.set_page_config(
-    page_title="Higienizador de Base - Auto Oriente",
+    page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
 )
 
-st.title("📊 Higienização de Base – Auto Oriente")
+st.title("📊 Higienização de Base – Auto Nunes")
 st.write("O sistema apenas limpa e padroniza telefones. Não remove números válidos.")
 
 # -----------------------------
