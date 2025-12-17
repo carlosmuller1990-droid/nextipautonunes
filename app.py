@@ -7,8 +7,8 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("📊 Higienização de Base – Auto Oriente")
-st.write("Faça upload da planilha (.xlsx). O sistema irá limpar, validar e remover telefones duplicados.")
+st.title("📊 Higienização de Base – Auto Nunes")
+st.write("Faça upload da planilha (.xlsx). O sistema irá limpar e validar os telefones.")
 
 # -----------------------------
 # Funções
@@ -71,14 +71,12 @@ if arquivo:
             st.error("❌ Nenhuma coluna de nome encontrada.")
             st.stop()
 
-        # Limpeza
+        # Limpeza e validação
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         df["FONE1_DD"], df["FONE1_NR"] = zip(*df["TEL_LIMPO"].apply(extrair_ddd_numero))
 
+        # Remove apenas telefones inválidos
         df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
-
-        # 🚫 Remover números duplicados
-        df = df.drop_duplicates(subset=["FONE1_DD", "FONE1_NR"])
 
         # IDs
         df["ID1"] = range(10, 10 + len(df))
@@ -87,6 +85,7 @@ if arquivo:
         # Primeiro nome
         df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
 
+        # Campos fixos
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
