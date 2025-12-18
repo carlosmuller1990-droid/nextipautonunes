@@ -16,14 +16,16 @@ st.markdown(
     "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
     "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
     "Exemplo abaixo:"
-)
-import streamlit as st
 
-st.image(
+    st.image(
     "https://raw.githubusercontent.com/carlosmuller1990-droide/nextipautonunes/main/exemplo_planilha.png",
     caption="Exemplo de planilha no formato correto",
     use_column_width=True
 )
+)
+import streamlit as st
+
+
 
 # -----------------------------
 # Funções
