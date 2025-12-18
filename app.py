@@ -20,9 +20,9 @@ st.markdown(
 import streamlit as st
 
 st.image(
-    "https://raw.githubusercontent.com/carlosmuller1990-droide/nextipautonunes/main/imagemdoprint",
+    "https://raw.githubusercontent.com/carlosmuller1990-droide/nextipautonunes/main/exemplo_planilha.png",
     caption="Exemplo de planilha no formato correto",
-    use_container_width=True
+    use_column_width=True
 )
 
 # -----------------------------
