@@ -13,31 +13,9 @@ st.set_page_config(
 st.title("📊 Higienização de Base – Auto Nunes")
 
 st.write(
-    "O sistema apenas limpa e padroniza telefones dentro dos parâmetros de importação do NextIP"
+    "O sistema apenas limpa, padroniza e remove telefones duplicados dentro dos parâmetros de importação do NextIP"
 )
 
-st.markdown(
-    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo:\n\n"
-    "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
-    "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
-    "**Exemplo abaixo:**"
-)
-
-# -----------------------------
-# Imagem de exemplo
-# -----------------------------
-st.image(
-    "https://github.com/carlosmuller1990-droid/nextipautonunes/blob/main/exemplo_planilha.png?raw=true",
-    caption="Exemplo de planilha no formato correto",
-    use_column_width=True
-)
-
-st.markdown(
-    "<div style='text-align:center; font-size:13px; opacity:0.7;'>"
-    "Programa criado pelo supervisor do BDC <strong>Carlos Junior</strong> - Autonunes"
-    "</div>",
-    unsafe_allow_html=True
-)
 # -----------------------------
 # Funções
 # -----------------------------
@@ -45,14 +23,11 @@ def limpar_telefone(valor):
     if pd.isna(valor):
         return None
 
-    if isinstance(valor, float):
-        valor = str(int(valor))
-    else:
-        valor = str(valor)
-
+    valor = str(valor)
     valor = re.sub(r"\D", "", valor)
 
-    if valor == "":
+    # Remove apenas lixo real
+    if len(valor) < 8:
         return None
 
     return valor
@@ -62,12 +37,12 @@ def extrair_ddd_numero(tel):
     if not tel:
         return None, None
 
-    # Telefones com DDD
+    # Com DDD
     if len(tel) >= 10:
         ddd = tel[:2]
         numero = tel[2:]
     else:
-        # Telefones sem DDD
+        # Sem DDD
         ddd = ""
         numero = tel
 
@@ -75,9 +50,11 @@ def extrair_ddd_numero(tel):
     if len(numero) == 8:
         numero = "9" + numero
 
-    # Regra mínima REAL
-    if len(numero) != 9:
+    # Trava final segura
+    if len(numero) < 9:
         return None, None
+
+    numero = numero[-9:]
 
     return ddd, numero
 
@@ -92,7 +69,7 @@ if arquivo:
         df = pd.read_excel(arquivo)
         df.columns = df.columns.str.upper().str.strip()
 
-        # Coluna telefone
+        # Detecta coluna telefone
         possiveis = ["TELEFONE", "TEL", "FONE", "CELULAR"]
         col_tel = next((c for c in df.columns if any(p in c for p in possiveis)), None)
 
@@ -100,15 +77,20 @@ if arquivo:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # Coluna nome (opcional)
+        # Detecta coluna nome (opcional)
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
         # Higienização
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
-        df["FONE1_DD"], df["FONE1_NR"] = zip(*df["TEL_LIMPO"].apply(extrair_ddd_numero))
+        df[["FONE1_DD", "FONE1_NR"]] = df["TEL_LIMPO"].apply(
+            lambda x: pd.Series(extrair_ddd_numero(x))
+        )
 
         # Remove apenas lixo real
         df = df.dropna(subset=["FONE1_NR"])
+
+        # 🔒 Remove números duplicados (considera o número apenas uma vez)
+        df = df.drop_duplicates(subset=["FONE1_NR"])
 
         # IDs
         df["ID1"] = range(10, 10 + len(df))
@@ -143,7 +125,7 @@ if arquivo:
 
         csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
 
-        st.success(f"✅ Higienização concluída — {len(df)} números válidos")
+        st.success(f"✅ Higienização concluída — {len(df)} números únicos e válidos")
 
         st.download_button(
             "⬇ Baixar CSV Higienizado",
