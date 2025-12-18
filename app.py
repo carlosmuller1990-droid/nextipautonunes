@@ -2,6 +2,9 @@ import pandas as pd
 import re
 import streamlit as st
 
+# -----------------------------
+# Configuração da página
+# -----------------------------
 st.set_page_config(
     page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
@@ -9,23 +12,25 @@ st.set_page_config(
 
 st.title("📊 Higienização de Base – Auto Nunes")
 
-st.write("O sistema apenas limpa e padroniza telefones dentro dos parametros de importação do NextIP")
+st.write(
+    "O sistema apenas limpa e padroniza telefones dentro dos parâmetros de importação do NextIP"
+)
 
 st.markdown(
-    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo com letras maiúsculas:\n\n"
+    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo:\n\n"
     "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
     "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
-    "Exemplo abaixo:"
-
-
+    "**Exemplo abaixo:**"
 )
-import streamlit as st
 
-
-    st.image(
+# -----------------------------
+# Imagem de exemplo
+# -----------------------------
+st.image(
     "https://raw.githubusercontent.com/carlosmuller1990-droide/nextipautonunes/main/exemplo_planilha.png",
     caption="Exemplo de planilha no formato correto",
-    use_column_width=True)
+    use_column_width=True
+)
 
 
 # -----------------------------
