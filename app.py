@@ -8,11 +8,15 @@ st.set_page_config(
 )
 
 st.title("📊 Higienização de Base – Auto Nunes")
-st.write("O sistema apenas limpa e padroniza telefones. Não remove números válidos.")
+
+st.write("O sistema apenas limpa e padroniza telefones dentro dos parametros de importação do NextIP")
+
 st.write(
     "Para o arquivo ser reconhecido, a planilha deve seguir os parametros de 3 colunas "
     "nomeadas com letras minusculas 'nome', 'ddd' e 'telefone' "
-    "ou em caso do ddd estar junto ao numero apenas duas colunas 'nome' e 'telefone'")
+    "ou em caso do ddd estar junto ao numero apenas duas colunas 'nome' e 'telefone' como no exemplo a baixo:")
+
+
 # -----------------------------
 # Funções
 # -----------------------------
