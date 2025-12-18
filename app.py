@@ -34,7 +34,7 @@ st.image(
 
 st.markdown(
     "<div style='text-align:center; font-size:13px; opacity:0.7;'>"
-    "Programa criado pelo supervisor do BDC <strong>Carlos Junior</strong> Autonunes"
+    "Programa criado pelo supervisor do BDC <strong>Carlos Junior</strong> - Autonunes"
     "</div>",
     unsafe_allow_html=True
 )
