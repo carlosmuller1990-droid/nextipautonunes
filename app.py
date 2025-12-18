@@ -27,7 +27,7 @@ st.markdown(
 # Imagem de exemplo
 # -----------------------------
 st.image(
-    "https://raw.githubusercontent.com/carlosmuller1990-droide/nextipautonunes/main/exemplo_planilha.png",
+    "https://github.com/carlosmuller1990-droid/nextipautonunes/blob/main/exemplo_planilha.png?raw=true",
     caption="Exemplo de planilha no formato correto",
     use_column_width=True
 )
