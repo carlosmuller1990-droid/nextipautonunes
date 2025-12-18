@@ -12,9 +12,10 @@ st.title("📊 Higienização de Base – Auto Nunes")
 st.write("O sistema apenas limpa e padroniza telefones dentro dos parametros de importação do NextIP")
 
 st.write(
-    "Para o arquivo ser reconhecido, a planilha deve seguir os parametros de 3 colunas "
-    "nomeadas com letras minusculas 'nome', 'ddd' e 'telefone' "
-    "ou em caso do ddd estar junto ao numero apenas duas colunas 'nome' e 'telefone' como no exemplo a baixo:")
+    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato CSV e seguir os parâmetros de 3 colunas "
+    "nomeadas com letras minúsculas 'nome', 'ddd' e 'telefone'. "
+    "Ou, caso o DDD esteja junto ao número, apenas duas colunas: "
+    "'nome' e 'telefone', como no exemplo abaixo:"
 
 
 # -----------------------------
