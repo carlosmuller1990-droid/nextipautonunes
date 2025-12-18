@@ -17,7 +17,13 @@ st.markdown(
     "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
     "Exemplo abaixo:"
 )
+import streamlit as st
 
+st.image(
+    "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/images/Captura%20de%20tela%202025-12-17%20214740.png",
+    caption="Exemplo de planilha no formato correto",
+    use_container_width=True
+)
 
 # -----------------------------
 # Funções
