@@ -32,7 +32,12 @@ st.image(
     use_column_width=True
 )
 
-
+st.markdown(
+    "<div style='text-align:center; font-size:13px; opacity:0.7;'>"
+    "Programa criado pelo supervisor do BDC <strong>Carlos Junior</strong>"
+    "</div>",
+    unsafe_allow_html=True
+)
 # -----------------------------
 # Funções
 # -----------------------------
