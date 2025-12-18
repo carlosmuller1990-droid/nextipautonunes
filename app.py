@@ -12,7 +12,7 @@ st.title("📊 Higienização de Base – Auto Nunes")
 st.write("O sistema apenas limpa e padroniza telefones dentro dos parametros de importação do NextIP")
 
 st.markdown(
-    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo:\n\n"
+    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo com letras maiúsculas:\n\n"
     "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
     "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
     "Exemplo abaixo:"
