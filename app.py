@@ -2,9 +2,6 @@ import pandas as pd
 import re
 import streamlit as st
 
-# -----------------------------
-# Configuração da página
-# -----------------------------
 st.set_page_config(
     page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
@@ -23,9 +20,6 @@ st.markdown(
     "**Exemplo abaixo:**"
 )
 
-# -----------------------------
-# Imagem de exemplo
-# -----------------------------
 st.image(
     "https://github.com/carlosmuller1990-droid/nextipautonunes/blob/main/exemplo_planilha.png?raw=true",
     caption="Exemplo de planilha no formato correto",
@@ -38,9 +32,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
-# -----------------------------
-# Funções
-# -----------------------------
+
 def limpar_telefone(valor):
     if pd.isna(valor):
         return None
@@ -57,34 +49,26 @@ def limpar_telefone(valor):
 
     return valor
 
-
 def extrair_ddd_numero(tel):
     if not tel:
         return None, None
-
-    # Telefones com DDD
+  
     if len(tel) >= 10:
         ddd = tel[:2]
         numero = tel[2:]
     else:
-        # Telefones sem DDD
+   
         ddd = ""
         numero = tel
-
-    # Ajuste celular antigo
+   
     if len(numero) == 8:
         numero = "9" + numero
 
-    # Regra mínima REAL
     if len(numero) != 9:
         return None, None
 
     return ddd, numero
 
-
-# -----------------------------
-# Upload
-# -----------------------------
 arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
 if arquivo:
@@ -92,7 +76,7 @@ if arquivo:
         df = pd.read_excel(arquivo)
         df.columns = df.columns.str.upper().str.strip()
 
-        # Coluna telefone
+     
         possiveis = ["TELEFONE", "TEL", "FONE", "CELULAR"]
         col_tel = next((c for c in df.columns if any(p in c for p in possiveis)), None)
 
@@ -100,27 +84,22 @@ if arquivo:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # Coluna nome (opcional)
         col_nome = next((c for c in df.columns if "NOME" in c), None)
-
-        # Higienização
+   
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         df["FONE1_DD"], df["FONE1_NR"] = zip(*df["TEL_LIMPO"].apply(extrair_ddd_numero))
 
-        # Remove apenas lixo real
         df = df.dropna(subset=["FONE1_NR"])
 
         # IDs
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # Primeiro nome
         if col_nome:
             df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
         else:
             df["CAMPO01"] = ""
 
-        # Campos fixos
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
