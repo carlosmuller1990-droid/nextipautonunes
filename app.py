@@ -2,9 +2,6 @@ import pandas as pd
 import re
 import streamlit as st
 
-# -----------------------------
-# Configuração da página
-# -----------------------------
 st.set_page_config(
     page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
@@ -13,137 +10,148 @@ st.set_page_config(
 st.title("📊 Higienização de Base – Auto Nunes")
 
 st.write(
-    "O sistema limpa e padroniza telefones seguindo rigorosamente "
-    "os parâmetros de importação do NextIP."
+    "O sistema limpa e padroniza telefones dentro dos parâmetros de importação do NextIP"
 )
 
-# -----------------------------
-# Funções
-# -----------------------------
+st.markdown(
+    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo:\n\n"
+    "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
+    "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
+    "**Exemplo abaixo:**"
+)
+
+st.image(
+    "https://github.com/carlosmuller1990-droid/nextipautonunes/blob/main/exemplo_planilha.png?raw=true",
+    caption="Exemplo de planilha no formato correto",
+    use_column_width=True
+)
+
+st.markdown(
+    "<div style='text-align:center; font-size:13px; opacity:0.7;'>"
+    "Programa desenvolvido pelo supervisor do BDC <strong>Carlos Junior</strong> - Autonunes"
+    "</div>",
+    unsafe_allow_html=True
+)
+
 def limpar_telefone(valor):
     if pd.isna(valor):
-        return ""
+        return None
 
-    valor = str(valor).strip()
+    if isinstance(valor, float):
+        valor = str(int(valor))
+    else:
+        valor = str(valor)
 
-    # Corrige floats vindos do Excel
-    if re.match(r"^\d+\.0$", valor):
-        valor = valor.replace(".0", "")
-    elif re.match(r"^\d+\.\d+$", valor):
-        valor = str(int(float(valor)))
+    valor = re.sub(r"\D", "", valor)
 
-    return re.sub(r"\D", "", valor)
+    if valor == "":
+        return None
 
+    return valor
 
-def validar_telefone(ddd, num):
-    if not ddd or not num:
+def validar_telefone(ddd, numero):
+    """Valida DDD e número conforme regras do primeiro código"""
+    if not numero or not ddd:
         return None, None
 
-    if not ddd.isdigit() or len(ddd) != 2:
+    # excluir números que começam com 3
+    if numero.startswith("3"):
         return None, None
 
-    # Remove telefones fixos/corporativos
-    if num.startswith("3"):
-        return None, None
+    # adicionar 9 se tiver 8 dígitos
+    if len(numero) == 8:
+        numero = "9" + numero
 
-    # Adiciona 9 se necessário
-    if len(num) == 8:
-        num = "9" + num
+    return ddd, numero
 
-    if len(num) != 9:
-        return None, None
-
-    return ddd, num
-
-
-def extrair_do_telefone(tel):
-    if not tel or len(tel) < 10:
-        return None, None
-
-    return tel[:2], tel[2:]
-
-# -----------------------------
-# Upload
-# -----------------------------
 arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
 if arquivo:
     try:
         df = pd.read_excel(arquivo)
+        
+        # Guardar os nomes originais das colunas para exibição
+        colunas_originais = df.columns.tolist()
+        
+        # Converter nomes das colunas para maiúsculo para padronizar busca
+        df.columns = df.columns.str.upper().str.strip()
 
-        # 🔥 NORMALIZA TODAS AS COLUNAS
-        df.columns = df.columns.str.strip().str.upper()
+        # Buscar colunas (agora buscando em maiúsculo)
+        # -----------------------------------------------------------
+        possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR", "CEL", "CONTATO", "NUMERO", "NÚMERO"]
+        col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
+        
+        # Buscar coluna DDD (verificar nomes comuns)
+        # Agora buscando diretamente por DDD em maiúsculo após conversão
+        possiveis_ddd = ["DDD", "CODIGO AREA", "ÁREA", "CODAREA", "COD AREA", "COD. AREA"]
+        col_ddd = next((c for c in df.columns if any(p in c for p in possiveis_ddd)), None)
+        
+        # Buscar também se existe exatamente "DDD" (maiúsculo após conversão)
+        if "DDD" in df.columns:
+            col_ddd = "DDD"
+        # -----------------------------------------------------------
 
-        # Detectar colunas
         col_nome = next((c for c in df.columns if "NOME" in c), None)
-
-        col_ddd = next(
-            (c for c in df.columns if "DDD" in c),
-            None
-        )
-
-        possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
-        col_tel = next(
-            (c for c in df.columns if any(p in c for p in possiveis_tel)),
-            None
-        )
-
+   
         if not col_tel:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
+            st.error(f"Colunas disponíveis: {', '.join(colunas_originais)}")
             st.stop()
 
-        # -----------------------------
-        # Processar telefones
-        # -----------------------------
+        # Limpar telefone
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
-
+        
+        # Lógica para tratar DDD separado vs. junto
+        # -----------------------------------------------------------
         novos_ddds = []
-        novos_nums = []
-
+        novos_numeros = []
+        
         for _, row in df.iterrows():
-            tel = row["TEL_LIMPO"]
-
-            # 👉 PRIORIDADE: coluna DDD
+            # Se tiver coluna DDD separada, usar ela
             if col_ddd:
-                ddd_raw = limpar_telefone(row[col_ddd])
-                num_raw = tel
+                # Limpar o DDD: remover .0, espaços, e garantir que seja string
+                ddd_raw = str(row[col_ddd])
+                
+                # Remover .0 do Excel (formato float)
+                if re.match(r"^\d+\.0$", ddd_raw):
+                    ddd_raw = ddd_raw.replace(".0", "")
+                
+                # Remover tudo que não é número
+                ddd_raw = re.sub(r"\D", "", ddd_raw)
+                
+                numero = row["TEL_LIMPO"]
             else:
-                ddd_raw, num_raw = extrair_do_telefone(tel)
-
-            ddd, num = validar_telefone(ddd_raw, num_raw)
-
+                # Se não tiver coluna DDD, extrair do telefone
+                ddd_raw = ""
+                numero = row["TEL_LIMPO"]
+                if numero and len(numero) >= 10:
+                    ddd_raw = numero[:2]
+                    numero = numero[2:]
+            
+            # Validar (igual ao primeiro código)
+            ddd, numero_validado = validar_telefone(ddd_raw, numero)
             novos_ddds.append(ddd)
-            novos_nums.append(num)
-
+            novos_numeros.append(numero_validado)
+        
         df["FONE1_DD"] = novos_ddds
-        df["FONE1_NR"] = novos_nums
+        df["FONE1_NR"] = novos_numeros
+        # -----------------------------------------------------------
 
-        # ❗ REMOVE QUALQUER REGISTRO INVÁLIDO
-        df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
+        # Remover linhas onde não há número válido
+        df = df.dropna(subset=["FONE1_NR"])
 
-        # -----------------------------
         # IDs
-        # -----------------------------
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # -----------------------------
-        # Primeiro nome
-        # -----------------------------
         if col_nome:
             df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
         else:
             df["CAMPO01"] = ""
 
-        # -----------------------------
-        # Campos fixos
-        # -----------------------------
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
-        # -----------------------------
-        # Colunas finais
-        # -----------------------------
         colunas_finais = [
             "ID1","ID2",
             "FONE1_DD","FONE1_NR","FONE1_DISCAR EM","FONE1_DISCAR AGORA",
@@ -161,16 +169,27 @@ if arquivo:
 
         df = df[colunas_finais]
 
-        # -----------------------------
-        # Exportar CSV
-        # -----------------------------
-        csv = df.to_csv(
-            sep=";",
-            index=False,
-            encoding="utf-8-sig"
-        )
+        csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
 
         st.success(f"✅ Higienização concluída — {len(df)} números válidos")
+        
+        # Mostrar estatísticas detalhadas
+        st.info(f"📊 **Estatísticas de importação:**")
+        st.info(f"- Colunas encontradas na planilha: {', '.join(colunas_originais)}")
+        st.info(f"- Coluna de telefone identificada: `{col_tel}`")
+        st.info(f"- Coluna de DDD identificada: `{col_ddd if col_ddd else 'Nenhuma (DDD extraído do telefone)'}`")
+        st.info(f"- Coluna de nome identificada: `{col_nome if col_nome else 'Nenhuma'}`")
+        
+        # Mostrar amostra dos dados processados
+        st.subheader("📋 Amostra dos dados processados:")
+        
+        # Criar um DataFrame de visualização com as colunas relevantes
+        if col_nome:
+            colunas_vis = ["CAMPO01", "FONE1_DD", "FONE1_NR"]
+        else:
+            colunas_vis = ["FONE1_DD", "FONE1_NR"]
+            
+        st.dataframe(df[colunas_vis].head(10))
 
         st.download_button(
             "⬇ Baixar CSV Higienizado",
@@ -179,7 +198,6 @@ if arquivo:
             "text/csv"
         )
 
-        st.dataframe(df.head(10))
-
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
+        st.error("Por favor, verifique se o arquivo está no formato correto.")
