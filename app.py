@@ -2,12 +2,20 @@ import pandas as pd
 import re
 import streamlit as st
 
+# -----------------------------
+# Configuração da página
+# -----------------------------
 st.set_page_config(
     page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
 )
 
 st.title("📊 Higienização de Base – Auto Nunes")
+
+st.write(
+    "O sistema limpa e padroniza telefones seguindo rigorosamente "
+    "os parâmetros de importação do NextIP."
+)
 
 # -----------------------------
 # Funções
@@ -16,8 +24,9 @@ def limpar_telefone(valor):
     if pd.isna(valor):
         return ""
 
-    valor = str(valor)
+    valor = str(valor).strip()
 
+    # Corrige floats vindos do Excel
     if re.match(r"^\d+\.0$", valor):
         valor = valor.replace(".0", "")
     elif re.match(r"^\d+\.\d+$", valor):
@@ -33,9 +42,11 @@ def validar_telefone(ddd, num):
     if not ddd.isdigit() or len(ddd) != 2:
         return None, None
 
+    # Remove telefones fixos/corporativos
     if num.startswith("3"):
         return None, None
 
+    # Adiciona 9 se necessário
     if len(num) == 8:
         num = "9" + num
 
@@ -59,19 +70,31 @@ arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 if arquivo:
     try:
         df = pd.read_excel(arquivo)
-        df.columns = df.columns.str.upper().str.strip()
 
+        # 🔥 NORMALIZA TODAS AS COLUNAS
+        df.columns = df.columns.str.strip().str.upper()
+
+        # Detectar colunas
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
-        col_ddd = next((c for c in df.columns if c == "ddd"), None)
+        col_ddd = next(
+            (c for c in df.columns if "DDD" in c),
+            None
+        )
 
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
-        col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
+        col_tel = next(
+            (c for c in df.columns if any(p in c for p in possiveis_tel)),
+            None
+        )
 
         if not col_tel:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
+        # -----------------------------
+        # Processar telefones
+        # -----------------------------
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
 
         novos_ddds = []
@@ -79,9 +102,6 @@ if arquivo:
 
         for _, row in df.iterrows():
             tel = row["TEL_LIMPO"]
-
-            ddd_raw = ""
-            num_raw = ""
 
             # 👉 PRIORIDADE: coluna DDD
             if col_ddd:
@@ -98,7 +118,7 @@ if arquivo:
         df["FONE1_DD"] = novos_ddds
         df["FONE1_NR"] = novos_nums
 
-        # ❗ REGRA CRÍTICA
+        # ❗ REMOVE QUALQUER REGISTRO INVÁLIDO
         df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
 
         # -----------------------------
@@ -107,14 +127,23 @@ if arquivo:
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
+        # -----------------------------
+        # Primeiro nome
+        # -----------------------------
         if col_nome:
             df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
         else:
             df["CAMPO01"] = ""
 
+        # -----------------------------
+        # Campos fixos
+        # -----------------------------
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
+        # -----------------------------
+        # Colunas finais
+        # -----------------------------
         colunas_finais = [
             "ID1","ID2",
             "FONE1_DD","FONE1_NR","FONE1_DISCAR EM","FONE1_DISCAR AGORA",
@@ -132,7 +161,14 @@ if arquivo:
 
         df = df[colunas_finais]
 
-        csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
+        # -----------------------------
+        # Exportar CSV
+        # -----------------------------
+        csv = df.to_csv(
+            sep=";",
+            index=False,
+            encoding="utf-8-sig"
+        )
 
         st.success(f"✅ Higienização concluída — {len(df)} números válidos")
 
