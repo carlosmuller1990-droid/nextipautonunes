@@ -63,7 +63,7 @@ if arquivo:
 
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
-        col_ddd = next((c for c in df.columns if c == "DDD"), None)
+        col_ddd = next((c for c in df.columns if c == "ddd"), None)
 
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
         col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
