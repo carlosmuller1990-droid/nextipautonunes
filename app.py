@@ -2,9 +2,6 @@ import pandas as pd
 import re
 import streamlit as st
 
-# -----------------------------
-# Configuração da página
-# -----------------------------
 st.set_page_config(
     page_title="Higienizador de Base - Auto Nunes",
     layout="centered"
@@ -12,64 +9,50 @@ st.set_page_config(
 
 st.title("📊 Higienização de Base – Auto Nunes")
 
-st.write(
-    "O sistema limpa e padroniza telefones seguindo rigorosamente "
-    "os parâmetros de importação do NextIP."
-)
-
 # -----------------------------
-# Funções de higienização
+# Funções
 # -----------------------------
-def limpar_telefone(num):
-    if pd.isna(num):
+def limpar_telefone(valor):
+    if pd.isna(valor):
         return ""
 
-    num_str = str(num).strip()
+    valor = str(valor)
 
-    # Caso venha como float do Excel
-    if re.match(r"^\d+\.0$", num_str):
-        num_str = num_str.replace(".0", "")
-    elif re.match(r"^\d+\.\d+$", num_str):
-        num_str = str(int(float(num_str)))
+    if re.match(r"^\d+\.0$", valor):
+        valor = valor.replace(".0", "")
+    elif re.match(r"^\d+\.\d+$", valor):
+        valor = str(int(float(valor)))
 
-    # Remove tudo que não é número
-    return re.sub(r"\D", "", num_str)
+    return re.sub(r"\D", "", valor)
 
 
 def validar_telefone(ddd, num):
     if not ddd or not num:
         return None, None
 
-    # DDD deve ter exatamente 2 dígitos
     if not ddd.isdigit() or len(ddd) != 2:
         return None, None
 
-    # Excluir números que começam com 3 (fixos/corporativos)
     if num.startswith("3"):
         return None, None
 
-    # Se tiver 8 dígitos, adiciona o 9
     if len(num) == 8:
         num = "9" + num
 
-    # Celular deve ter exatamente 9 dígitos
     if len(num) != 9:
         return None, None
 
     return ddd, num
 
 
-def extrair_ddd_numero(tel):
+def extrair_do_telefone(tel):
     if not tel or len(tel) < 10:
         return None, None
 
-    ddd = tel[:2]
-    numero = tel[2:]
-
-    return validar_telefone(ddd, numero)
+    return tel[:2], tel[2:]
 
 # -----------------------------
-# Upload do arquivo
+# Upload
 # -----------------------------
 arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
@@ -78,55 +61,60 @@ if arquivo:
         df = pd.read_excel(arquivo)
         df.columns = df.columns.str.upper().str.strip()
 
-        # -----------------------------
-        # Detectar colunas
-        # -----------------------------
         col_nome = next((c for c in df.columns if "NOME" in c), None)
 
+        col_ddd = next((c for c in df.columns if c == "DDD"), None)
+
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
-        col_tel = next(
-            (c for c in df.columns if any(p in c for p in possiveis_tel)),
-            None
-        )
+        col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
 
         if not col_tel:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # -----------------------------
-        # Processar telefones
-        # -----------------------------
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
-        df["FONE1_DD"], df["FONE1_NR"] = zip(
-            *df["TEL_LIMPO"].apply(extrair_ddd_numero)
-        )
 
-        # ❗ REMOVE QUALQUER REGISTRO SEM DDD OU NÚMERO
+        novos_ddds = []
+        novos_nums = []
+
+        for _, row in df.iterrows():
+            tel = row["TEL_LIMPO"]
+
+            ddd_raw = ""
+            num_raw = ""
+
+            # 👉 PRIORIDADE: coluna DDD
+            if col_ddd:
+                ddd_raw = limpar_telefone(row[col_ddd])
+                num_raw = tel
+            else:
+                ddd_raw, num_raw = extrair_do_telefone(tel)
+
+            ddd, num = validar_telefone(ddd_raw, num_raw)
+
+            novos_ddds.append(ddd)
+            novos_nums.append(num)
+
+        df["FONE1_DD"] = novos_ddds
+        df["FONE1_NR"] = novos_nums
+
+        # ❗ REGRA CRÍTICA
         df = df.dropna(subset=["FONE1_DD", "FONE1_NR"])
 
         # -----------------------------
-        # IDs sequenciais
+        # IDs
         # -----------------------------
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # -----------------------------
-        # Primeiro nome
-        # -----------------------------
         if col_nome:
             df["CAMPO01"] = df[col_nome].astype(str).str.split().str[0]
         else:
             df["CAMPO01"] = ""
 
-        # -----------------------------
-        # Campos fixos
-        # -----------------------------
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
-        # -----------------------------
-        # Colunas finais
-        # -----------------------------
         colunas_finais = [
             "ID1","ID2",
             "FONE1_DD","FONE1_NR","FONE1_DISCAR EM","FONE1_DISCAR AGORA",
@@ -144,14 +132,7 @@ if arquivo:
 
         df = df[colunas_finais]
 
-        # -----------------------------
-        # Exportar CSV
-        # -----------------------------
-        csv = df.to_csv(
-            sep=";",
-            index=False,
-            encoding="utf-8-sig"
-        )
+        csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
 
         st.success(f"✅ Higienização concluída — {len(df)} números válidos")
 
