@@ -13,26 +13,6 @@ st.write(
     "O sistema limpa e padroniza telefones dentro dos parâmetros de importação do NextIP"
 )
 
-st.markdown(
-    "Para o arquivo ser reconhecido, a planilha deve estar salva no formato **CSV** e seguir um dos padrões abaixo:\n\n"
-    "- **3 colunas**: `nome`, `ddd`, `telefone`\n"
-    "- **2 colunas** (DDD junto ao número): `nome`, `telefone`\n\n"
-    "**Exemplo abaixo:**"
-)
-
-st.image(
-    "https://github.com/carlosmuller1990-droid/nextipautonunes/blob/main/exemplo_planilha.png?raw=true",
-    caption="Exemplo de planilha no formato correto",
-    use_column_width=True
-)
-
-st.markdown(
-    "<div style='text-align:center; font-size:13px; opacity:0.7;'>"
-    "Programa desenvolvido pelo supervisor do BDC <strong>Carlos Junior</strong> - Autonunes"
-    "</div>",
-    unsafe_allow_html=True
-)
-
 # ================= FUNÇÕES =================
 
 def limpar_telefone(valor):
@@ -76,21 +56,28 @@ arquivo = st.file_uploader(
 
 if arquivo:
     try:
-        # -------- Leitura --------
+        # -------- LEITURA --------
         if arquivo.name.lower().endswith(".csv"):
             df = pd.read_csv(
                 arquivo,
                 sep=";",
-                encoding="latin1",
+                encoding="utf-8-sig",  # ← já trata BOM
                 engine="python",
                 on_bad_lines="skip"
             )
         else:
             df = pd.read_excel(arquivo)
 
-        df.columns = df.columns.str.upper().str.strip()
+        # 🔥 CORREÇÃO DEFINITIVA DO BOM
+        df.columns = (
+            df.columns
+            .astype(str)
+            .str.replace("\ufeff", "", regex=False)
+            .str.upper()
+            .str.strip()
+        )
 
-        # -------- Detectar colunas --------
+        # -------- DETECÇÃO DE COLUNAS --------
         col_tel = next(
             (c for c in df.columns if any(p in c for p in ["TELEFONE", "TEL", "FONE", "CELULAR"])),
             None
@@ -110,7 +97,7 @@ if arquivo:
             None
         )
 
-        # -------- CAPTURA DEFINITIVA DO PRIMEIRO NOME --------
+        # -------- PRIMEIRO NOME (CAPTURA REAL) --------
         if col_nome:
             primeiro_nome = (
                 df[col_nome]
@@ -122,7 +109,7 @@ if arquivo:
         else:
             primeiro_nome = ""
 
-        # -------- Limpeza telefone --------
+        # -------- TELEFONE --------
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
 
         if col_ddd:
@@ -139,14 +126,14 @@ if arquivo:
 
         df = df.dropna(subset=["FONE1_NR"]).reset_index(drop=True)
 
-        # -------- IDs --------
+        # -------- IDS --------
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # -------- CAMPO01 (FINAL E CORRETO) --------
+        # ✅ CAMPO01 FINAL E CORRETO
         df["CAMPO01"] = primeiro_nome.iloc[df.index] if col_nome else ""
 
-        # -------- Campos fixos --------
+        # -------- CAMPOS FIXOS --------
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
