@@ -1,171 +1,90 @@
 import pandas as pd
-import re
-import streamlit as st
+import os
+import tkinter as tk
+from tkinter import filedialog
 
-st.set_page_config(
-    page_title="Higienizador de Base - Auto Nunes",
-    layout="centered"
+# Inicializa Tkinter sem janela principal
+root = tk.Tk()
+root.withdraw()
+
+print("=" * 50)
+print("HIGIENIZAÇÃO DE DUPLICATAS EM ARQUIVOS")
+print("=" * 50)
+
+# Selecionar arquivo
+arquivo = filedialog.askopenfilename(
+    title="Selecione o arquivo CSV ou Excel",
+    filetypes=[
+        ("CSV", "*.csv"),
+        ("Excel", "*.xlsx *.xlsm *.xls"),
+        ("Todos os arquivos", "*.*")
+    ]
 )
 
-st.title("📊 Higienização de Base – Auto Nunes")
+if not arquivo:
+    print("\n❌ Nenhum arquivo selecionado.")
+    input("Pressione ENTER para sair...")
+    exit()
 
-st.write(
-    "O sistema limpa e padroniza telefones dentro dos parâmetros de importação do NextIP"
-)
+ext = os.path.splitext(arquivo)[1].lower()
 
-# ================= FUNÇÕES =================
-
-def limpar_telefone(valor):
-    if pd.isna(valor):
-        return None
-    if isinstance(valor, float):
-        valor = str(int(valor))
+# Leitura do arquivo
+try:
+    if ext == ".csv":
+        # CSV brasileiro problemático
+        df = pd.read_csv(
+            arquivo,
+            sep=None,                 # detecta separador automaticamente
+            engine="python",
+            encoding="latin1",
+            on_bad_lines="skip"
+        )
     else:
-        valor = str(valor)
-    valor = re.sub(r"\D", "", valor)
-    return valor if valor else None
+        # Excel moderno
+        df = pd.read_excel(arquivo)
 
-def extrair_ddd_numero(tel, ddd_externo=None):
-    if not tel:
-        return None, None
+except Exception as e:
+    print(f"\n❌ Erro ao ler o arquivo: {e}")
+    input("Pressione ENTER para sair...")
+    exit()
 
-    if ddd_externo and pd.notna(ddd_externo):
-        ddd = re.sub(r"\D", "", str(ddd_externo))[:2]
-        numero = tel
+# Mostrar colunas
+print("\nColunas encontradas:")
+for c in df.columns:
+    print(f"- {c}")
+
+coluna = input("\nDigite o NOME EXATO da coluna de referência: ").strip()
+
+if coluna not in df.columns:
+    print("\n❌ Coluna não encontrada.")
+    input("Pressione ENTER para sair...")
+    exit()
+
+# Higienização
+total_antes = len(df)
+
+df_limpo = df.drop_duplicates(subset=[coluna], keep="first")
+
+total_depois = len(df_limpo)
+removidos = total_antes - total_depois
+
+# Salvar arquivo
+base, _ = os.path.splitext(arquivo)
+saida = f"{base}_HIGIENIZADO{ext}"
+
+try:
+    if ext == ".csv":
+        df_limpo.to_csv(saida, index=False, sep=";", encoding="latin1")
     else:
-        if len(tel) >= 10:
-            ddd = tel[:2]
-            numero = tel[2:]
-        else:
-            return None, None
+        df_limpo.to_excel(saida, index=False)
+except Exception as e:
+    print(f"\n❌ Erro ao salvar o arquivo: {e}")
+    input("Pressione ENTER para sair...")
+    exit()
 
-    if len(numero) == 8:
-        numero = "9" + numero
+print("\n✅ HIGIENIZAÇÃO CONCLUÍDA")
+print(f"📊 Registros antes: {total_antes}")
+print(f"🗑️ Duplicatas removidas: {removidos}")
+print(f"📁 Arquivo salvo em: {saida}")
 
-    if len(numero) != 9 or len(ddd) != 2:
-        return None, None
-
-    return ddd, numero
-
-# ================= UPLOAD =================
-
-arquivo = st.file_uploader(
-    "📂 Envie a planilha (.csv ou .xlsx)",
-    type=["csv", "xlsx"]
-)
-
-if arquivo:
-    try:
-        # -------- LEITURA --------
-        if arquivo.name.lower().endswith(".csv"):
-            df = pd.read_csv(
-                arquivo,
-                sep=";",
-                encoding="utf-8-sig",  # ← já trata BOM
-                engine="python",
-                on_bad_lines="skip"
-            )
-        else:
-            df = pd.read_excel(arquivo)
-
-        # 🔥 CORREÇÃO DEFINITIVA DO BOM
-        df.columns = (
-            df.columns
-            .astype(str)
-            .str.replace("\ufeff", "", regex=False)
-            .str.upper()
-            .str.strip()
-        )
-
-        # -------- DETECÇÃO DE COLUNAS --------
-        col_tel = next(
-            (c for c in df.columns if any(p in c for p in ["TELEFONE", "TEL", "FONE", "CELULAR"])),
-            None
-        )
-
-        if not col_tel:
-            st.error("❌ Nenhuma coluna de telefone encontrada.")
-            st.stop()
-
-        col_ddd = next(
-            (c for c in df.columns if any(p in c for p in ["DDD", "CODIGO AREA", "ÁREA", "CODAREA"])),
-            None
-        )
-
-        col_nome = next(
-            (c for c in df.columns if c.startswith("NOME")),
-            None
-        )
-
-        # -------- PRIMEIRO NOME (CAPTURA REAL) --------
-        if col_nome:
-            primeiro_nome = (
-                df[col_nome]
-                .astype(str)
-                .str.strip()
-                .str.split()
-                .str[0]
-            )
-        else:
-            primeiro_nome = ""
-
-        # -------- TELEFONE --------
-        df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
-
-        if col_ddd:
-            resultados = df.apply(
-                lambda r: extrair_ddd_numero(r["TEL_LIMPO"], r[col_ddd]),
-                axis=1
-            )
-        else:
-            resultados = df["TEL_LIMPO"].apply(extrair_ddd_numero)
-
-        ddds, numeros = zip(*resultados)
-        df["FONE1_DD"] = ddds
-        df["FONE1_NR"] = numeros
-
-        df = df.dropna(subset=["FONE1_NR"]).reset_index(drop=True)
-
-        # -------- IDS --------
-        df["ID1"] = range(10, 10 + len(df))
-        df["ID2"] = df["ID1"]
-
-        # ✅ CAMPO01 FINAL E CORRETO
-        df["CAMPO01"] = primeiro_nome.iloc[df.index] if col_nome else ""
-
-        # -------- CAMPOS FIXOS --------
-        df["FONE1_DISCAR EM"] = ""
-        df["FONE1_DISCAR AGORA"] = "S"
-
-        colunas_finais = [
-            "ID1","ID2",
-            "FONE1_DD","FONE1_NR","FONE1_DISCAR EM","FONE1_DISCAR AGORA",
-            "FONE2_DD","FONE2_NR","FONE2_DISCAR EM","FONE2_DISCAR AGORA",
-            "FONE3_DD","FONE3_NR","FONE3_DISCAR EM","FONE3_DISCAR AGORA",
-            "FONE4_DD","FONE4_NR","FONE4_DISCAR EM","FONE4_DISCAR AGORA",
-            "FONE5_DD","FONE5_NR","FONE5_DISCAR EM","FONE5_DISCAR AGORA",
-            "AGENTE","CAMPO01","CAMPO02","CAMPO03","CAMPO04","CAMPO05",
-            "CAMPO06","CAMPO07","CAMPO08","CAMPO09","CAMPO10"
-        ]
-
-        for c in colunas_finais:
-            if c not in df:
-                df[c] = ""
-
-        df = df[colunas_finais]
-
-        csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
-
-        st.success(f"✅ Higienização concluída — {len(df)} números válidos")
-
-        st.download_button(
-            "⬇ Baixar CSV Higienizado",
-            csv,
-            "planilha_higienizada.csv",
-            "text/csv"
-        )
-
-        st.dataframe(df.head(10))
-
-    except Exception as e:
-        st.error(f"Erro ao processar o arquivo: {e}")
+input("\nPressione ENTER para sair...")
