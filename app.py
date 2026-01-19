@@ -33,48 +33,41 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ================= FUNÇÕES =================
+
 def limpar_telefone(valor):
     if pd.isna(valor):
         return None
-
     if isinstance(valor, float):
         valor = str(int(valor))
     else:
         valor = str(valor)
-
     valor = re.sub(r"\D", "", valor)
-
-    if valor == "":
-        return None
-
-    return valor
+    return valor if valor else None
 
 def extrair_ddd_numero(tel, ddd_externo=None):
     if not tel:
         return None, None
-    
+
     if ddd_externo and pd.notna(ddd_externo):
-        ddd = str(ddd_externo)
-        ddd = re.sub(r"\D", "", ddd)[:2] if ddd else ""
+        ddd = re.sub(r"\D", "", str(ddd_externo))[:2]
         numero = tel
     else:
         if len(tel) >= 10:
             ddd = tel[:2]
             numero = tel[2:]
         else:
-            ddd = ""
-            numero = tel
-    
+            return None, None
+
     if len(numero) == 8:
         numero = "9" + numero
 
-    if len(numero) != 9:
+    if len(numero) != 9 or len(ddd) != 2:
         return None, None
-    
-    if ddd and len(ddd) < 2:
-        ddd = None
 
     return ddd, numero
+
+# ================= UPLOAD =================
 
 arquivo = st.file_uploader(
     "📂 Envie a planilha (.csv ou .xlsx)",
@@ -83,9 +76,8 @@ arquivo = st.file_uploader(
 
 if arquivo:
     try:
-        nome_arquivo = arquivo.name.lower()
-
-        if nome_arquivo.endswith(".csv"):
+        # -------- Leitura --------
+        if arquivo.name.lower().endswith(".csv"):
             df = pd.read_csv(
                 arquivo,
                 sep=";",
@@ -98,30 +90,44 @@ if arquivo:
 
         df.columns = df.columns.str.upper().str.strip()
 
-        possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
-        col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
+        # -------- Detectar colunas --------
+        col_tel = next(
+            (c for c in df.columns if any(p in c for p in ["TELEFONE", "TEL", "FONE", "CELULAR"])),
+            None
+        )
 
         if not col_tel:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        possiveis_ddd = ["DDD", "CODIGO AREA", "ÁREA", "CODAREA"]
-        col_ddd = next((c for c in df.columns if any(p in c for p in possiveis_ddd)), None)
+        col_ddd = next(
+            (c for c in df.columns if any(p in c for p in ["DDD", "CODIGO AREA", "ÁREA", "CODAREA"])),
+            None
+        )
 
-        # 🔧 CORREÇÃO APLICADA AQUI
-        col_nome = next((c for c in df.columns if c.strip().upper().startswith("NOME")), None)
+        col_nome = next(
+            (c for c in df.columns if c.startswith("NOME")),
+            None
+        )
 
-        st.info(f"🔍 Coluna de telefone encontrada: `{col_tel}`")
-        if col_ddd:
-            st.info(f"🔍 Coluna de DDD encontrada: `{col_ddd}`")
+        # -------- CAPTURA DEFINITIVA DO PRIMEIRO NOME --------
         if col_nome:
-            st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`")
+            primeiro_nome = (
+                df[col_nome]
+                .astype(str)
+                .str.strip()
+                .str.split()
+                .str[0]
+            )
+        else:
+            primeiro_nome = ""
 
+        # -------- Limpeza telefone --------
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
 
         if col_ddd:
             resultados = df.apply(
-                lambda row: extrair_ddd_numero(row["TEL_LIMPO"], row[col_ddd]),
+                lambda r: extrair_ddd_numero(r["TEL_LIMPO"], r[col_ddd]),
                 axis=1
             )
         else:
@@ -131,17 +137,16 @@ if arquivo:
         df["FONE1_DD"] = ddds
         df["FONE1_NR"] = numeros
 
-        df = df.dropna(subset=["FONE1_NR"])
+        df = df.dropna(subset=["FONE1_NR"]).reset_index(drop=True)
 
+        # -------- IDs --------
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
-        # ✅ CAMPO01 corretamente preenchido com o PRIMEIRO NOME
-        if col_nome:
-            df["CAMPO01"] = df[col_nome].astype(str).str.strip().str.split().str[0]
-        else:
-            df["CAMPO01"] = ""
+        # -------- CAMPO01 (FINAL E CORRETO) --------
+        df["CAMPO01"] = primeiro_nome.iloc[df.index] if col_nome else ""
 
+        # -------- Campos fixos --------
         df["FONE1_DISCAR EM"] = ""
         df["FONE1_DISCAR AGORA"] = "S"
 
@@ -156,9 +161,9 @@ if arquivo:
             "CAMPO06","CAMPO07","CAMPO08","CAMPO09","CAMPO10"
         ]
 
-        for col in colunas_finais:
-            if col not in df:
-                df[col] = ""
+        for c in colunas_finais:
+            if c not in df:
+                df[c] = ""
 
         df = df[colunas_finais]
 
