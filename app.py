@@ -50,17 +50,14 @@ def limpar_telefone(valor):
     return valor
 
 def extrair_ddd_numero(tel, ddd_externo=None):
-    """Extrai DDD e número, podendo receber DDD de coluna separada"""
     if not tel:
         return None, None
     
-    # Se já tem DDD de coluna separada, usa ele
     if ddd_externo and pd.notna(ddd_externo):
         ddd = str(ddd_externo)
         ddd = re.sub(r"\D", "", ddd)[:2] if ddd else ""
         numero = tel
     else:
-        # Se não tem DDD separado, tenta extrair do telefone
         if len(tel) >= 10:
             ddd = tel[:2]
             numero = tel[2:]
@@ -74,7 +71,6 @@ def extrair_ddd_numero(tel, ddd_externo=None):
     if len(numero) != 9:
         return None, None
     
-    # Garantir que DDD tenha 2 dígitos
     if ddd and len(ddd) < 2:
         ddd = None
 
@@ -84,15 +80,12 @@ arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
 if arquivo:
     try:
-        # 🔥 AJUSTE AQUI (única mudança real)
+        # 🔥 ajuste mínimo (resolve seu problema)
         df = pd.read_excel(arquivo, dtype=str, engine="openpyxl")
 
         df.columns = df.columns.str.upper().str.strip()
-
-        # 🔥 Evita NaN quebrando o código
         df = df.fillna("")
 
-        # ADIÇÃO 1: Buscar coluna DDD
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
         col_tel = next((c for c in df.columns if any(p in c for p in possiveis_tel)), None)
 
@@ -100,7 +93,6 @@ if arquivo:
             st.error("❌ Nenhuma coluna de telefone encontrada.")
             st.stop()
 
-        # ADIÇÃO 2: Buscar coluna DDD separada
         possiveis_ddd = ["DDD", "CODIGO AREA", "ÁREA", "CODAREA"]
         col_ddd = next((c for c in df.columns if any(p in c for p in possiveis_ddd)), None)
 
@@ -110,11 +102,10 @@ if arquivo:
         if col_ddd:
             st.info(f"🔍 Coluna de DDD encontrada: `{col_ddd}`")
         if col_nome:
-            st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`)
-   
+            st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`")
+
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         
-        # ADIÇÃO 3: Processar com ou sem coluna DDD separada
         if col_ddd:
             resultados = df.apply(
                 lambda row: extrair_ddd_numero(row["TEL_LIMPO"], row[col_ddd]), 
@@ -123,14 +114,12 @@ if arquivo:
         else:
             resultados = df["TEL_LIMPO"].apply(extrair_ddd_numero)
         
-        # Separar os resultados
         ddds, numeros = zip(*resultados)
         df["FONE1_DD"] = ddds
         df["FONE1_NR"] = numeros
 
         df = df.dropna(subset=["FONE1_NR"])
 
-        # IDs
         df["ID1"] = range(10, 10 + len(df))
         df["ID2"] = df["ID1"]
 
