@@ -80,10 +80,12 @@ arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
 if arquivo:
     try:
-        # 🔥 ajuste mínimo (resolve seu problema)
+        # 🔥 AJUSTE 1 (forçar texto)
         df = pd.read_excel(arquivo, dtype=str, engine="openpyxl")
 
         df.columns = df.columns.str.upper().str.strip()
+
+        # 🔥 AJUSTE 2 (evitar NaN)
         df = df.fillna("")
 
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
@@ -103,6 +105,9 @@ if arquivo:
             st.info(f"🔍 Coluna de DDD encontrada: `{col_ddd}`")
         if col_nome:
             st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`")
+
+        # 🔥 AJUSTE 3 (remover linhas vazias - ESSENCIAL)
+        df = df[df[col_tel].astype(str).str.strip() != ""]
 
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         
