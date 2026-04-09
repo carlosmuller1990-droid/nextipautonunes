@@ -84,8 +84,13 @@ arquivo = st.file_uploader("📂 Envie a planilha (.xlsx)", type=["xlsx"])
 
 if arquivo:
     try:
-        df = pd.read_excel(arquivo)
+        # 🔥 AJUSTE AQUI (única mudança real)
+        df = pd.read_excel(arquivo, dtype=str, engine="openpyxl")
+
         df.columns = df.columns.str.upper().str.strip()
+
+        # 🔥 Evita NaN quebrando o código
+        df = df.fillna("")
 
         # ADIÇÃO 1: Buscar coluna DDD
         possiveis_tel = ["TELEFONE", "TEL", "FONE", "CELULAR"]
@@ -101,24 +106,21 @@ if arquivo:
 
         col_nome = next((c for c in df.columns if "NOME" in c), None)
         
-        # Mostrar quais colunas foram encontradas
         st.info(f"🔍 Coluna de telefone encontrada: `{col_tel}`")
         if col_ddd:
             st.info(f"🔍 Coluna de DDD encontrada: `{col_ddd}`")
         if col_nome:
-            st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`")
+            st.info(f"🔍 Coluna de nome encontrada: `{col_nome}`)
    
         df["TEL_LIMPO"] = df[col_tel].apply(limpar_telefone)
         
         # ADIÇÃO 3: Processar com ou sem coluna DDD separada
         if col_ddd:
-            # Usar DDD da coluna separada
             resultados = df.apply(
                 lambda row: extrair_ddd_numero(row["TEL_LIMPO"], row[col_ddd]), 
                 axis=1
             )
         else:
-            # Extrair DDD do telefone
             resultados = df["TEL_LIMPO"].apply(extrair_ddd_numero)
         
         # Separar os resultados
@@ -160,8 +162,7 @@ if arquivo:
         csv = df.to_csv(sep=";", index=False, encoding="utf-8-sig")
 
         st.success(f"✅ Higienização concluída — {len(df)} números válidos")
-        
-        # ADIÇÃO 4: Mostrar estatísticas
+
         st.info(f"📊 Estatísticas: {df['FONE1_DD'].notna().sum()} DDDs extraídos")
 
         st.download_button(
